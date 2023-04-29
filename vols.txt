@@ -1,4 +1,4 @@
-001 NewYork 5 1000.0
+001 NewYork 7 1000.0
 002 Paris 5 1500.0
 003 Tokyo 8 2000.0
 004 London 15 800.0
