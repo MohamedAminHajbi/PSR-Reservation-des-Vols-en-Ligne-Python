@@ -1,20 +1,23 @@
 import socket
+import time
+import pickle
 
 
-s = socket.socket()
+HEADERSIZE = 10
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 print('Socket Created')
 
-s.bind(('localhost', 9999))
+s.bind((socket.gethostname(), 1235))
 s.listen(3)
 print('Waiting for clients')
 
 while True:
     c, addr = s.accept()
-    name = c.recv(1024).decode()
-    print('Connected with ', addr, name)
+    print('Connected with ', addr)
 
-    msg = "Welcome to the server!"
-    print(f'{len(msg):<10}' + msg)
+    d = {1: "Hey", 2: "There"}
+    msg = pickle.dumps(d)
 
-    c.send(bytes('Welcome to the Gulag '+name, 'utf-8'))
-    c.close()
+    msg = bytes(f'{len(msg):<{HEADERSIZE}}', "utf-8") + msg
+
+    c.send(msg)
