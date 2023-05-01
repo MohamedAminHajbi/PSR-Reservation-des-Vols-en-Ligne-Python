@@ -59,6 +59,11 @@ while True:
                 f"Received message from {user['data'].decode('utf-8')} : {message['data'].decode('utf-8')}")
             request = message['data'].decode('utf-8').split(' ')
             print(request)
+            reservation_successful, crendu = vols_manager.GestionnaireVols().reserver(
+                request[0], request[1], request[2], int(request[3]))
+            notified_socket.send(
+                user['header'] + user['data'] + message['header'] + bytes(crendu, 'utf-8'))
+            request = []
             for client_socket in clients:
                 if client_socket != notified_socket:
                     client_socket.send(
