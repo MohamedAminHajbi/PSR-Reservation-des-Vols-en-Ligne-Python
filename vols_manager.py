@@ -120,3 +120,19 @@ class GestionnaireVols:
             return True, "Annulation acceptée"
         else:
             return False, "Transaction invalide"
+    def getFacture(self, ag):
+        with open("factures.txt", "r") as f:
+            lines = f.readlines()
+            for line in lines:
+                agenceF , prix = line.strip().split()
+                if agenceF == ag:
+                    return("Votre facture est :"+prix)
+    def getHisto(self, ag):
+        with open("histo.txt", "r") as f:
+            lines = f.readlines()
+            x=""
+            for line in lines:
+                ref_vol, agence, transaction_type, valeur, resultat = line.strip().split()
+                if ag == agence:
+                    x=x+line+"\n"
+            return x
