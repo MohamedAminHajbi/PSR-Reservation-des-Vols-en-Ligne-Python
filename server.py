@@ -1,10 +1,11 @@
-import socket
-import select
+import threading
 import vols_manager
+import select
+import socket
 
 HEADER_LENGTH = 10
-IP = "127.0.0.1"
-PORT = 1234
+IP = "localhost"
+PORT = 9090
 
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -15,6 +16,7 @@ server_socket.listen()
 sockets_list = [server_socket]
 
 clients = {}
+lock = threading.Lock()
 
 
 def receive_message(client_socket):
@@ -25,7 +27,6 @@ def receive_message(client_socket):
             return False
         message_length = int(message_header.decode("utf-8").strip())
         return {"header": message_header, "data": client_socket.recv(message_length)}
-
     except:
         return False
 
@@ -41,48 +42,59 @@ while True:
             user = receive_message(client_socket)
             if user is False:
                 continue
-            sockets_list.append(client_socket)
-            clients[client_socket] = user
+            with lock:
+                sockets_list.append(client_socket)
+                clients[client_socket] = user
 
             print(
                 f"Accepted new connection from {client_address[0]}:{client_address[1]} username:{user['data'].decode('utf-8')}")
-            
-        else:   
-                while True:
-                    message = receive_message(notified_socket)
-                    if message is False:
-                        print(
-                            f"Closed connection from {clients[notified_socket]['data'].decode('utf-8')}")
-                        sockets_list.remove(notified_socket)
-                        del clients[notified_socket]
-                        continue
-                    user = clients[notified_socket]
-                    if message['data'].decode('utf-8') == "Reservation":
-                        
-                        msg = receive_message(notified_socket)
-                        print(
-                            f"Received message from {user['data'].decode('utf-8')} : {msg['data'].decode('utf-8')}")
-                        request = msg['data'].decode('utf-8').split(' ')
-                        print(request)
-                        reservation_successful, crendu = vols_manager.GestionnaireVols().reserver(
-                            request[0], request[1], request[2], int(request[3]))
-                        notified_socket.send(
-                            user['header'] + user['data'] + message['header'] + bytes(crendu, 'utf-8'))
-                        request = []
-                    elif message['data'].decode('utf-8') == "Facturation":
-                        fac = user['data']+ vols_manager.GestionnaireVols().getFacture(user['data'].encode('utf-8'))
-                        notified_socket.send(user['header'] + user['data'] + message['header'] + bytes(fac, 'utf-8'))
-                    elif message['data'].decode('utf-8') == "Historique":
-                        histo=vols_manager.GestionnaireVols().getHisto(user['data'].decode('utf-8'))
-                        notified_socket.send(user['header'] + user['data'] + message['header'] + bytes(histo, 'utf-8'))
-                    elif message['data'].decode('utf-8') == "Exit":
-                        break
-                    else:
-                        notified_socket.send("Message inconnu")
-                        continue
-                for client_socket in clients:
-                        if client_socket != notified_socket:
-                            client_socket.send(user['header'] + user['data'] + message['header'] + message['data'])
+        else:
+            message = receive_message(notified_socket)
+            if message is False:
+                print(
+                    f"Closed connection from {clients[notified_socket]['data'].decode('utf-8')}")
+                with lock:
+                    sockets_list.remove(client_socket)
+                    del clients[client_socket]
+                continue
+            elif message['data'].decode('utf-8') == "Historique":
+                user = clients[notified_socket]
+                print(
+                    f"Received message from {user['data'].decode('utf-8')} : {message['data'].decode('utf-8')}")
+                request = message['data'].decode('utf-8')
+                print(request)
+                histo = vols_manager.GestionnaireVols().getHisto(
+                    user['data'].decode('utf-8'))
+                notified_socket.send(
+                    user['header'] + user['data'] + message['header'] + bytes(histo, 'utf-8'))
+            elif message['data'].decode('utf-8') == "Facture":
+                user = clients[notified_socket]
+                print(
+                    f"Received message from {user['data'].decode('utf-8')} : {message['data'].decode('utf-8')}")
+                request = message['data'].decode('utf-8')
+                print(request)
+                fact = vols_manager.GestionnaireVols().getFacture(
+                    user['data'].decode('utf-8'))
+                notified_socket.send(
+                    user['header'] + user['data'] + message['header'] + bytes(fact, 'utf-8'))
+            else:
+                user = clients[notified_socket]
+                print(
+                    f"Received message from {user['data'].decode('utf-8')} : {message['data'].decode('utf-8')}")
+                request = message['data'].decode('utf-8').split(' ')
+                print(request)
+                reservation_successful, crendu = vols_manager.GestionnaireVols().reserver(
+                    request[0], request[1], request[2], int(request[3]))
+                notified_socket.send(
+                    user['header'] + user['data'] + message['header'] + bytes(crendu, 'utf-8'))
+                request = []
+            for client_socket in clients:
+                if client_socket != notified_socket:
+                    client_socket.send(
+                        user['header'] + user['data'] + message['header'] + message['data'])
     for notified_socket in exception_sockets:
         sockets_list.remove(notified_socket)
         del clients[notified_socket]
+
+
+
